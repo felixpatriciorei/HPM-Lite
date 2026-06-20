@@ -84,3 +84,9 @@ See:
 
 - [`docs/results.md`](docs/results.md)
 - [`docs/structured_memory_readout.md`](docs/structured_memory_readout.md)
+
+| Experiment | What it tested | Main result |
+|---|---|---|
+| Local baseline vs episodic memory | Long-gap exact recall | Memory helped only under controlled write/read settings |
+| Shuffled values / random keys | Leakage and shortcut checks | Used to test whether retrieval was actually meaningful |
+| Structured readout | Typed memory-slot recovery | Showed that readout design matters for exact fact use |
