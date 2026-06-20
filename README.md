@@ -1,5 +1,6 @@
 # HPM-Lite
 
+Recruiter summary: This project demonstrates Python/PyTorch implementation, experiment design, model evaluation, validation controls, software testing, and technical documentation. It is a small research prototype, not a production model.
 HPM-Lite is a compact PyTorch research prototype for testing one narrow idea:
 
 > Can a tiny local-attention model with simple episodic memory recover long-range exact facts better than a same-size local-attention baseline?
