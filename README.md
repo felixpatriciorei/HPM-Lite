@@ -1,92 +1,191 @@
 # HPM-Lite
 
-Recruiter summary: This project demonstrates Python/PyTorch implementation, experiment design, model evaluation, validation controls, software testing, and technical documentation. It is a small research prototype, not a production model.
-HPM-Lite is a compact PyTorch research prototype for testing one narrow idea:
+Small PyTorch testbed for controlled experiments on memory-augmented sequence models.
 
-> Can a tiny local-attention model with simple episodic memory recover long-range exact facts better than a same-size local-attention baseline?
+HPM-Lite tests whether simple external-memory mechanisms can improve exact long-range recall over a local-attention baseline. The project is intentionally small: synthetic tasks, CPU-friendly runs, explicit controls, and readable experiment outputs.
 
-This repository is meant to be a clean, reproducible research prototype. It focuses on controlled synthetic memory tasks, diagnostic baselines, and failure-mode analysis rather than claiming to be a practical Transformer replacement.
+It is not a production model, benchmark leaderboard submission, or claim of a Transformer replacement.
 
-## Highlights
+## Purpose
 
-- Local-attention baseline, episodic-memory baseline, HPM-Lite variant, recurrent summary variant, and Hebbian-style associative memory baseline.
-- Synthetic key-value, coexisting, conditional, and long-hop style diagnostic tasks.
-- Validation controls for no retrieval, shuffled values, random keys, random writes, and leak checks.
-- Structured readout experiments for typed memory slots and learned slot extraction.
-- CPU-friendly smoke tests and small validation runs.
+Long-context models often mix several different problems under one label: recent-token lookup, compressed state tracking, exact retrieval of rare facts, and abstract reasoning. HPM-Lite isolates one narrow part of that problem:
 
-## Repository Structure
+> When a fact appears early in a sequence and the query appears after a long distractor gap, does a small memory mechanism help recover the exact answer?
+
+The goal is not to prove a full architecture. The goal is to make the basic memory behavior measurable.
+
+## What this repository demonstrates
+
+* Python and PyTorch implementation
+* Synthetic sequence-task generation
+* Local-attention and memory-augmented baselines
+* Exact answer-token evaluation
+* Retrieval controls for leakage and shortcut checks
+* CSV and Markdown reporting
+* Small reproducible CPU experiments
+* Basic tests and smoke runs
+
+## Scope
+
+HPM-Lite focuses on controlled recall diagnostics.
+
+Included:
+
+* local baseline
+* recurrent summary baseline
+* episodic memory model
+* combined HPM-Lite model
+* Hebbian-style associative-memory baseline
+* validation controls
+* structured memory diagnostics
+* experiment reports
+
+Not included:
+
+* large-scale pretraining
+* ANN-backed retrieval
+* distributed training
+* learned autonomous memory writing
+* JEPA-style latent prediction
+* full multi-path routing
+* claims of general long-context reasoning
+
+## Repository layout
 
 ```text
-hpm_lite/      Core datasets, models, memory modules, metrics, and read/write utilities
-scripts/       Experiment runners and diagnostic scripts
-tests/         Pytest tests for shapes, data generation, memory, write modes, and readouts
-docs/          Result summaries and structured-memory writeups
+hpm_lite/        Core package
+scripts/         Experiment and validation runners
+tests/           Basic test coverage
+docs/            Reports and result notes
+requirements.txt Python dependencies
+README.md        Project overview
 ```
-
-Generated artifacts such as checkpoints, raw run folders, logs, and `__pycache__` files are intentionally excluded from this GitHub-ready version.
 
 ## Install
 
 ```bash
+git clone https://github.com/felixpatriciorei/HPM-Lite.git
+cd HPM-Lite
 pip install -r requirements.txt
 ```
 
-The code uses synthetic data and does not require an external dataset.
+The code does not require external datasets.
 
-## Smoke Test
+## Smoke test
+
+Run a short CPU check:
 
 ```bash
 python scripts/run_smoke.py
 ```
 
-This runs a short CPU sanity check for the core model variants and verifies that losses, exact accuracy, and retrieval metrics run without NaNs.
+This trains the main model variants for a few steps and checks that losses, exact accuracy, and retrieval metrics run without NaNs.
 
-## Run Validation Controls
-
-```bash
-python scripts/run_validation.py --steps 5 --batch-size 4 --d-model 64 --layers 1 --heads 4 --device cpu --eval-batches 2 --write-modes oracle,fact_token,random_write --task kv
-```
-
-This evaluates memory behavior under normal retrieval and controls such as no retrieval, shuffled values, and random keys.
-
-## Structured Memory Diagnostics
+## Train a model
 
 ```bash
-python scripts/run_structured_readers.py
-python scripts/run_noisy_slot_extraction.py
+python -m hpm_lite.train --model local --steps 200 --seq-len 512 --window 64 --batch-size 32
+python -m hpm_lite.train --model epmem --steps 200 --seq-len 512 --window 64 --batch-size 32
+python -m hpm_lite.train --model hpm_lite --steps 200 --seq-len 512 --window 64 --batch-size 32
 ```
 
-These scripts test whether typed readouts and learned slot extraction can recover answers when ordinary next-token decoding is not the right read/use operator.
+Available model variants:
 
-## Tests
+```text
+local
+recurrent
+epmem
+hpm_lite
+hebbian
+```
+
+## Evaluate
 
 ```bash
-pytest
+python -m hpm_lite.evaluate \
+  --checkpoint runs/path/to/checkpoint.pt \
+  --model epmem \
+  --seq-lens 256,512,1024 \
+  --window 64
 ```
 
-## Interpreting Results
+Evaluation reports exact answer accuracy and answer-position loss. If no checkpoint is supplied, the command evaluates a freshly initialized model, which is only useful for debugging.
 
-The primary metric is exact answer accuracy at the answer position. Cross-entropy is useful for diagnostics, but small CE shifts are not meaningful unless exact recall and controls also improve.
+## Run a small comparison
 
-A memory mechanism is interesting only if it clearly beats the local baseline on long-gap recall while passing controls that rule out leakage or shortcut behavior.
+```bash
+python scripts/run_experiment.py --steps 40 --seq-len 512 --window 64 --batch-size 16
+```
 
-## Limitations
+The runner writes experiment outputs under `runs/` and produces summary files for inspection.
 
-- The tasks are synthetic and controlled.
-- Some experiments use oracle or parser-based memory writes to isolate retrieval/readout behavior.
-- The project does not test real natural-language extraction, large-vocabulary generation, production inference, or large-scale training.
-- HPM-Lite is a research prototype, not a production model architecture.
+## Run validation controls
 
-## Selected Results
+```bash
+python scripts/run_validation.py --steps 5 --batch-size 4 --d-model 64 --layers 1 --device cpu
+```
 
-See:
+The validation runner checks whether memory results survive basic controls:
 
-- [`docs/results.md`](docs/results.md)
-- [`docs/structured_memory_readout.md`](docs/structured_memory_readout.md)
+* normal memory
+* shuffled memory values
+* random memory keys
+* no retrieval
+* multiple seeds
+* multiple sequence lengths
 
-| Experiment | What it tested | Main result |
-|---|---|---|
-| Local baseline vs episodic memory | Long-gap exact recall | Memory helped only under controlled write/read settings |
-| Shuffled values / random keys | Leakage and shortcut checks | Used to test whether retrieval was actually meaningful |
-| Structured readout | Typed memory-slot recovery | Showed that readout design matters for exact fact use |
+These controls are important because a model can appear to improve while actually relying on leakage, easy shortcuts, or task artifacts.
+
+## Hebbian audit
+
+```bash
+python scripts/run_hebbian_audit.py --steps 2 --batch-size 4 --eval-batches 2 --d-model 64 --layers 1 --device cpu
+```
+
+This audit tests a simple associative-memory baseline under harder conditions such as two-hop recall, repeated keys, adjacent value IDs, corrupted values, random fact order, and distractor keys.
+
+The update rule is:
+
+```text
+M = lambda * M + eta * k * v^T
+r = M^T q
+```
+
+This baseline is useful because it separates “memory helped” from “the full model architecture was necessary.”
+
+## Interpreting results
+
+The main metric is exact answer accuracy at the answer position.
+
+Answer cross-entropy is secondary. A small loss improvement is not enough if exact recall does not improve.
+
+A memory model is only interesting when it beats the local baseline under long-gap conditions and survives retrieval controls. If the local baseline already solves the task, the task should be made harder by increasing the gap, increasing the number of facts, adding distractors, or using a multi-hop variant.
+
+## Current research questions
+
+This repository is organized around three practical questions:
+
+1. Does episodic memory improve exact recall over a local baseline?
+2. Do retrieval controls show that the model is using memory rather than shortcuts?
+3. Do structured readouts recover facts when generic output heads fail?
+
+Negative results are still useful. A failed memory mechanism is evidence about what not to scale.
+
+## Known limitations
+
+* Some experiments use oracle memory writes.
+* Retrieval is brute-force rather than ANN-backed.
+* Tasks are synthetic and controlled.
+* Results should not be treated as general language-model performance.
+* The code is designed for small experiments, not production training.
+* The project does not implement the full HPM architecture.
+
+## Suggested citation
+
+```text
+Patricio, F. P. J. HPM-Lite: controlled experiments for memory-augmented sequence recall. GitHub repository.
+```
+
+## Status
+
+Experimental research code. Interfaces, scripts, and result formats may change.
